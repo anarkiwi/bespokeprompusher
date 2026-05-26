@@ -47,14 +47,14 @@ def test_error_code_defaults_to_zero_when_absent():
 
 def test_returns_empty_on_connection_error():
     with patch("requests.get", side_effect=requests.exceptions.ConnectionError):
-        assert fronius.poll({}, None) == []
+        assert not fronius.poll({}, None)
 
 
 def test_returns_empty_on_null_data():
     r = MagicMock()
     r.json.return_value = {"Body": {"Data": None}}
     with patch("requests.get", return_value=r):
-        assert fronius.poll({}, None) == []
+        assert not fronius.poll({}, None)
 
 
 def test_uses_configured_url():

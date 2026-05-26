@@ -16,6 +16,7 @@ def poll(config, creds):
         run = subprocess.run(
             ["snmpwalk", "-v1", "-c", community, host, oid],
             capture_output=True,
+            check=False,
             timeout=30,
         )
         if run.returncode != 0:

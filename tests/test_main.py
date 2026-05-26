@@ -27,15 +27,15 @@ def test_make_poller_calls_poll_and_pushes():
         "instance": "i",
         "config": {},
     }
-    mock_mod = MagicMock()
-    mock_mod.poll.return_value = [("m", 1.0)]
     with (
-        patch("importlib.import_module", return_value=mock_mod),
-        patch("bespokeprompusher.main.push") as mock_push,
+        patch("bespokeprompusher.pollers.fronius.poll", return_value=[("m", 1.0)]),
+        patch("requests.post") as mock_post,
     ):
+        mock_post.return_value.raise_for_status = MagicMock()
         fn = main.make_poller(task, "http://gw:9091", MagicMock())
         fn()
-    mock_push.assert_called_once_with("http://gw:9091", "j", "i", [("m", 1.0)])
+    mock_post.assert_called_once()
+    assert "/job/j/instance/i" in mock_post.call_args.args[0]
 
 
 def test_make_poller_skips_push_on_empty():
@@ -46,15 +46,13 @@ def test_make_poller_skips_push_on_empty():
         "instance": "i",
         "config": {},
     }
-    mock_mod = MagicMock()
-    mock_mod.poll.return_value = []
     with (
-        patch("importlib.import_module", return_value=mock_mod),
-        patch("bespokeprompusher.main.push") as mock_push,
+        patch("bespokeprompusher.pollers.fronius.poll", return_value=[]),
+        patch("requests.post") as mock_post,
     ):
         fn = main.make_poller(task, "http://gw:9091", MagicMock())
         fn()
-    mock_push.assert_not_called()
+    mock_post.assert_not_called()
 
 
 def test_loop_catches_exceptions_and_continues():

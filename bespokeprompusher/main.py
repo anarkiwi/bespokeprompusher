@@ -26,9 +26,7 @@ def push(pushgateway, job, instance, metrics):
 
 
 def make_poller(task_cfg, pushgateway, creds):
-    mod = importlib.import_module(
-        f"bespokeprompusher.pollers.{task_cfg['poller']}"
-    )
+    mod = importlib.import_module(f"bespokeprompusher.pollers.{task_cfg['poller']}")
     job = task_cfg["job"]
     instance = task_cfg["instance"]
     extra = task_cfg.get("config", {})
@@ -56,7 +54,7 @@ def loop(fn, name, interval_seconds):
 
 def main():
     config_path = os.environ.get("CONFIG_FILE", "/config/bespokeprompusher.yaml")
-    with open(config_path) as f:
+    with open(config_path, encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
     secrets_path = cfg.get(

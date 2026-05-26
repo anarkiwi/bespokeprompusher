@@ -16,6 +16,9 @@ dependencies = [
 [tool.setuptools.packages.find]
 include = ["bespokeprompusher*"]
 
+[tool.black]
+target-version = ["py312"]
+
 [tool.pylint.messages_control]
 disable = [
     "missing-module-docstring",

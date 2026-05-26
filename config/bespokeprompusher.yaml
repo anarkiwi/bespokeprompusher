@@ -1,0 +1,29 @@
+pushgateway: http://docker0.finf:9091
+secrets_file: /secrets/finfsecrets
+
+tasks:
+  - name: dpdu
+    poller: dpdupoll
+    job: dpdu
+    instance: dpdu
+    interval_seconds: 60
+
+  - name: deco_4g
+    poller: deco
+    job: 4g
+    instance: ridge
+    interval_seconds: 60
+
+  - name: fronius
+    poller: fronius
+    job: fronius
+    instance: home
+    interval_seconds: 60
+
+  - name: aquatel
+    poller: aquapoll
+    job: aquatel
+    instance: "1"
+    interval_seconds: 300
+    config:
+      port: /dev/serial/by-id/usb-FTDI_USB__-__Serial_Cable_FT8YXF6L-if03-port0

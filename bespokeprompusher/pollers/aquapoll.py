@@ -14,7 +14,7 @@ def poll(config, _creds):
     port = config.get("port", PORT_DEFAULT)
     speed = config.get("speed", SPEED_DEFAULT)
     tank_id = config.get("tank_id", TANK_ID_DEFAULT)
-    request = bytes([0x2, 0x1, tank_id, 0xd])
+    request = bytes([0x2, 0x1, tank_id, 0xD])
 
     for _ in range(3):
         with serial.Serial(port, speed, timeout=5) as s:
@@ -25,7 +25,7 @@ def poll(config, _creds):
                 s.flush()
             r = s.read(R_LEN)
 
-        if len(r) == R_LEN and r[-1] == 0xd:
+        if len(r) == R_LEN and r[-1] == 0xD:
             vals = struct.unpack_from("<" + "b" * R_LEN, r)
             if vals[1] != tank_id:
                 raise ValueError(f"unexpected tank_id {vals[1]}, expected {tank_id}")

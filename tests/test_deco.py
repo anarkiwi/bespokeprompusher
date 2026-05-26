@@ -29,7 +29,9 @@ def test_extracts_numeric_fields():
             "downlink_rate": "50",
         }
     )
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
         results = deco.poll({}, _creds())
     d = dict(results)
     assert d["rssi"] == 75.0
@@ -38,21 +40,27 @@ def test_extracts_numeric_fields():
 
 def test_network_type_lte_plus():
     router = _router({"network_type": "lte_plus"})
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
         results = deco.poll({}, _creds())
     assert dict(results)["lte_plus"] == 1
 
 
 def test_network_type_not_lte_plus():
     router = _router({"network_type": "lte"})
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
         results = deco.poll({}, _creds())
     assert dict(results)["lte_plus"] == 0
 
 
 def test_unknown_fields_ignored():
     router = _router({"rssi": "80", "unknown_field": "ignored"})
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
         results = deco.poll({}, _creds())
     assert "unknown_field" not in dict(results)
 
@@ -60,12 +68,16 @@ def test_unknown_fields_ignored():
 def test_returns_empty_on_connection_error():
     router = MagicMock()
     router.authorize.side_effect = requests.exceptions.ConnectionError
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
-        assert deco.poll({}, _creds()) == []
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
+        assert not deco.poll({}, _creds())
 
 
 def test_returns_empty_on_client_error():
     router = MagicMock()
     router.authorize.side_effect = ClientError
-    with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
-        assert deco.poll({}, _creds()) == []
+    with patch(
+        "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+    ):
+        assert not deco.poll({}, _creds())
