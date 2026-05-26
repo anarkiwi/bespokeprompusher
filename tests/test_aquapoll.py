@@ -1,9 +1,8 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
-from bespokeprompusher.pollers import aquapoll
+import pytest
 
-R_LEN = 9
+from bespokeprompusher.pollers import aquapoll
 
 
 def _valid_response(level=50, rssi=90, temp=22, batt=1, tank_id=1):
@@ -38,11 +37,13 @@ def test_returns_all_four_metrics():
 
 
 def test_retries_on_short_read():
-    s = _make_serial([
-        b"\x00" * 5,           # too short
-        b"\x00" * 9,           # wrong terminator
-        _valid_response(level=60),
-    ])
+    s = _make_serial(
+        [
+            b"\x00" * 5,  # too short
+            b"\x00" * 9,  # wrong terminator
+            _valid_response(level=60),
+        ]
+    )
     with patch("serial.Serial", return_value=s), patch("time.sleep"):
         results = aquapoll.poll({}, None)
     assert dict(results)["level"] == 60
@@ -63,7 +64,6 @@ def test_uses_configured_port():
 
 
 def test_raises_on_wrong_tank_id():
-    # response has tank_id=2 but we expect 1
     bad = _valid_response(tank_id=2)
     s = _make_serial([bad])
     with patch("serial.Serial", return_value=s), patch("time.sleep"):

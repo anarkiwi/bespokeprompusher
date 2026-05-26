@@ -1,5 +1,6 @@
-import requests
 from unittest.mock import MagicMock, patch
+
+import requests
 
 from bespokeprompusher.pollers import fronius
 
@@ -57,7 +58,10 @@ def test_returns_empty_on_null_data():
 
 
 def test_uses_configured_url():
-    with patch("requests.get", return_value=_resp({"DeviceStatus": {"ErrorCode": 0}})) as mock_get:
+    with patch(
+        "requests.get",
+        return_value=_resp({"DeviceStatus": {"ErrorCode": 0}}),
+    ) as mock_get:
         fronius.poll({"url": "http://myinverter.local/api"}, None)
     mock_get.assert_called_once()
     assert mock_get.call_args.args[0] == "http://myinverter.local/api"

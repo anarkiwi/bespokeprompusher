@@ -11,7 +11,7 @@ COPY . .
 
 FROM base AS test
 RUN pip install --no-cache-dir -r requirements-dev.txt
-CMD ["pytest", "-v", "tests/"]
+CMD ["sh", "-c", "black --check . && pylint bespokeprompusher tests && pytest --cov=bespokeprompusher --cov-fail-under=85 -v tests/"]
 
 FROM base AS production
 CMD ["python", "-m", "bespokeprompusher.main"]

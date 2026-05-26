@@ -15,3 +15,15 @@ dependencies = [
 
 [tool.setuptools.packages.find]
 include = ["bespokeprompusher*"]
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+    "too-few-public-methods",
+    "broad-exception-caught",
+]
+
+[tool.pylint.format]
+max-line-length = 88

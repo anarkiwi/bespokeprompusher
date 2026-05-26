@@ -10,7 +10,7 @@ R_LEN = 9
 METRICS = ("level", "rssi", "temperature_c", "battery_status")
 
 
-def poll(config, creds):
+def poll(config, _creds):
     port = config.get("port", PORT_DEFAULT)
     speed = config.get("speed", SPEED_DEFAULT)
     tank_id = config.get("tank_id", TANK_ID_DEFAULT)

@@ -1,5 +1,7 @@
-import requests
 from unittest.mock import MagicMock, patch
+
+import requests
+from tplinkrouterc6u.common.exception import ClientError
 
 from bespokeprompusher.pollers import deco
 
@@ -17,8 +19,16 @@ def _router(mobile_cpe):
 
 
 def test_extracts_numeric_fields():
-    router = _router({"rssi": "75", "rsrq": "9", "snr": "12",
-                      "rsrp": "90", "uplink_rate": "10", "downlink_rate": "50"})
+    router = _router(
+        {
+            "rssi": "75",
+            "rsrq": "9",
+            "snr": "12",
+            "rsrp": "90",
+            "uplink_rate": "10",
+            "downlink_rate": "50",
+        }
+    )
     with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):
         results = deco.poll({}, _creds())
     d = dict(results)
@@ -55,7 +65,6 @@ def test_returns_empty_on_connection_error():
 
 
 def test_returns_empty_on_client_error():
-    from tplinkrouterc6u.common.exception import ClientError
     router = MagicMock()
     router.authorize.side_effect = ClientError
     with patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router):

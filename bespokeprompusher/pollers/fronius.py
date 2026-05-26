@@ -9,7 +9,7 @@ PARAMS_DEFAULT = {
 FIELDS = ("PAC", "IAC", "UAC", "FAC", "IDC", "UDC")
 
 
-def poll(config, creds):
+def poll(config, _creds):
     url = config.get("url", URL_DEFAULT)
     params = config.get("params", PARAMS_DEFAULT)
     try:

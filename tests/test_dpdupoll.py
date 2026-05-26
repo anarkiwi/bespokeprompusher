@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from bespokeprompusher.pollers import dpdupoll
 
 
@@ -42,8 +44,6 @@ def test_uses_community_from_creds():
 
 
 def test_raises_on_snmpwalk_failure():
-    import pytest
-
     bad = MagicMock()
     bad.returncode = 1
     bad.stderr = b"timeout"
