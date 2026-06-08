@@ -1,4 +1,4 @@
-import subprocess
+from bespokeprompusher.pollers._snmp import walk_int
 
 DPDU_DEFAULT = "dpdu.finf"
 VARS = {
@@ -13,18 +13,7 @@ def poll(config, creds):
     community = creds.get("snmp", "dpdu_community")
     results = []
     for var, oid in VARS.items():
-        run = subprocess.run(
-            ["snmpwalk", "-v1", "-c", community, host, oid],
-            capture_output=True,
-            check=False,
-            timeout=30,
-        )
-        if run.returncode != 0:
-            raise RuntimeError(
-                f"snmpwalk failed for {var}: {run.stderr.decode().strip()}"
-            )
-        line = run.stdout.decode().splitlines()[-1]
-        result = int(line.split()[-1])
+        result = walk_int(host, oid, community, version="1")
         if var in SCALE:
             result *= SCALE[var]
         results.append((var, result))
