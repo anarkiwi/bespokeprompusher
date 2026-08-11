@@ -32,5 +32,5 @@ def test_skips_unreachable_station_but_keeps_others():
     with patch("subprocess.run", side_effect=fake_run):
         d = dict(nbpoll.poll({"stations": ["down-nb", "up-nb"]}, creds()))
     assert all("down-nb" not in name for name in d)
-    assert d['nbifInOct{station="up-nb"}'] == 7
-    assert d['nbifOutOct{station="up-nb"}'] == 7
+    assert d['nbRxBytes{station="up-nb"}'] == 7
+    assert d['nbTxBytes{station="up-nb"}'] == 7
