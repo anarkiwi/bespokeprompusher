@@ -6,14 +6,18 @@ log = logging.getLogger(__name__)
 
 # Ubiquiti nanobridge backhaul stations, one SNMP host each.
 STATIONS_DEFAULT = ("gnd-nb",)
-# nbifIn/OutOct: octet counters. Rest: UBNT-AFLTU-MIB chain signal / link potential %.
+# ath0 ifHCIn/OutOctets undercount bridged traffic ~170x here; use UBNT-AFLTU-MIB.
 VARS = {
-    "nbifInOct": "iso.3.6.1.2.1.31.1.1.1.6.4",
-    "nbifOutOct": "iso.3.6.1.2.1.31.1.1.1.10.4",
+    "nbRxBytes": "iso.3.6.1.4.1.41112.1.10.1.5.3.0",
+    "nbTxBytes": "iso.3.6.1.4.1.41112.1.10.1.5.1.0",
+    "nbRxPps": "iso.3.6.1.4.1.41112.1.10.1.5.4.0",
+    "nbTxPps": "iso.3.6.1.4.1.41112.1.10.1.5.2.0",
     "nbChain0Signal": "iso.3.6.1.4.1.41112.1.10.1.4.1.5",
     "nbChain1Signal": "iso.3.6.1.4.1.41112.1.10.1.4.1.6",
     "nbChain0LinkPotential": "iso.3.6.1.4.1.41112.1.10.1.4.1.9",
     "nbChain1LinkPotential": "iso.3.6.1.4.1.41112.1.10.1.4.1.10",
+    "nbTxCapacityKbps": "iso.3.6.1.4.1.41112.1.10.1.4.1.3",
+    "nbRxCapacityKbps": "iso.3.6.1.4.1.41112.1.10.1.4.1.4",
 }
 
 
