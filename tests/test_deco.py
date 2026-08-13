@@ -20,9 +20,10 @@ def _creds(password="testpw"):
     return m
 
 
-def _router(mobile_cpe):
+def _router(mobile_cpe, performance=None):
     r = MagicMock()
     r.get_internet.return_value = {"mobile_cpe": mobile_cpe}
+    r.get_performance.return_value = {} if performance is None else performance
     return r
 
 
@@ -34,8 +35,8 @@ def _poll(router, now=0.0, config=None):
         return dict(deco.poll({} if config is None else config, _creds()))
 
 
-def _connected(**extra):
-    return _router({"dial_status": "connected", **extra})
+def _connected(performance=None, **extra):
+    return _router({"dial_status": "connected", **extra}, performance)
 
 
 def _unreachable(exc=requests.exceptions.ConnectionError):
@@ -116,6 +117,26 @@ def test_unreachable_deco_restarts_both_timers():
     assert recovered["system_uptime_exact"] == 1
     assert recovered["cell_session_uptime_seconds"] == 0.0
     assert _poll(_connected(), now=100.0)["system_uptime_seconds"] == 10.0
+
+
+def test_exports_cpu_and_memory():
+    d = _poll(_connected(performance={"cpu_usage": 0.21, "mem_usage": 0.5}))
+    assert d["cpu_usage"] == 0.21
+    assert d["mem_usage"] == 0.5
+
+
+def test_unavailable_performance_keeps_the_other_metrics():
+    d = _poll(_connected(rssi="80"))
+    assert "mem_usage" not in d
+    assert d["rssi"] == 80.0
+    assert d["system_uptime_seconds"] == 0.0
+
+
+def test_get_performance_swallows_a_client_error():
+    # pylint: disable=protected-access
+    client = deco._TPLinkDecoClient2.__new__(deco._TPLinkDecoClient2)
+    with patch.object(deco._TPLinkDecoClient2, "_read", side_effect=ClientError):
+        assert not client.get_performance()
 
 
 def test_state_is_per_deco():

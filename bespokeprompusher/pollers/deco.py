@@ -7,16 +7,28 @@ from tplinkrouterc6u.common.exception import ClientError, ClientException
 
 IP_DEFAULT = "http://192.168.254.1"
 FIELDS = ["rssi", "rsrq", "snr", "rsrp", "uplink_rate", "downlink_rate"]
+# Deco 4G/5G firmware is reported to fill RAM with NAT sessions until it wedges.
+PERF_FIELDS = ["cpu_usage", "mem_usage"]
 
 # Uptime/PCI are cloud-passthrough only, so uptimes are timed here, per Deco.
 _STATE = {}
 
 
 class _TPLinkDecoClient2(TPLinkDecoClient):
-    def get_internet(self):
+    def _read(self, form):
         return self.request(
-            "admin/network?form=internet", json.dumps({"operation": "read"})
+            f"admin/network?form={form}", json.dumps({"operation": "read"})
         )
+
+    def get_internet(self):
+        return self._read("internet")
+
+    def get_performance(self):
+        """cpu_usage/mem_usage, or {} rather than costing us the signal metrics."""
+        try:
+            return self._read("performance")
+        except (ClientError, ClientException):
+            return {}
 
 
 class _Uptime:
@@ -51,6 +63,7 @@ def poll(config, creds):
         router = _TPLinkDecoClient2(ip, pw)
         router.authorize()
         internet_stats = router.get_internet()
+        performance = router.get_performance()
         router.logout()
     except (requests.exceptions.ConnectionError, ClientError, ClientException):
         # Losing the Deco breaks observation of the cell session too.
@@ -65,6 +78,7 @@ def poll(config, creds):
             results.append((k, float(v)))
         elif k == "network_type":
             results.append(("lte_plus", int(v == "lte_plus")))
+    results.extend((k, float(v)) for k, v in performance.items() if k in PERF_FIELDS)
     connected = cpe.get("dial_status") == "connected"
     results.extend(
         (
