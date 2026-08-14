@@ -18,6 +18,9 @@ VARS = {
     "nbChain1LinkPotential": "iso.3.6.1.4.1.41112.1.10.1.4.1.10",
     "nbTxCapacityKbps": "iso.3.6.1.4.1.41112.1.10.1.4.1.3",
     "nbRxCapacityKbps": "iso.3.6.1.4.1.41112.1.10.1.4.1.4",
+    # afLTUStaTxRate/RxRate: currently-selected modulation index ("x" units).
+    "nbTxRate": "iso.3.6.1.4.1.41112.1.10.1.4.1.1",
+    "nbRxRate": "iso.3.6.1.4.1.41112.1.10.1.4.1.2",
 }
 
 
