@@ -27,16 +27,27 @@ def _router(mobile_cpe, performance=None):
     return r
 
 
-def _poll(router, now=0.0, config=None):
-    with (
-        patch("bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router),
-        patch("bespokeprompusher.pollers.deco.time.monotonic", return_value=now),
-    ):
-        return dict(deco.poll({} if config is None else config, _creds()))
-
-
 def _connected(performance=None, **extra):
     return _router({"dial_status": "connected", **extra}, performance)
+
+
+def _set_cpe(router, mobile_cpe):
+    router.get_internet.return_value = {"mobile_cpe": mobile_cpe}
+
+
+def _poll_ctor(router, now=0.0, config=None):
+    """Poll once, returning (metrics, the patched client constructor)."""
+    with (
+        patch(
+            "bespokeprompusher.pollers.deco._TPLinkDecoClient2", return_value=router
+        ) as ctor,
+        patch("bespokeprompusher.pollers.deco.time.monotonic", return_value=now),
+    ):
+        return dict(deco.poll({} if config is None else config, _creds())), ctor
+
+
+def _poll(router, now=0.0, config=None):
+    return _poll_ctor(router, now, config)[0]
 
 
 def _unreachable(exc=requests.exceptions.ConnectionError):
@@ -96,27 +107,32 @@ def test_first_poll_uptimes_are_lower_bounds():
 
 
 def test_session_uptime_resets_and_becomes_exact_on_redial():
-    assert _poll(_router({"dial_status": "disconnected"}), now=10.0) == {
+    router = _router({"dial_status": "disconnected"})
+    assert _poll(router, now=10.0) == {
         "cell_session_uptime_seconds": 0.0,
         "cell_session_uptime_exact": 1,
         "system_uptime_seconds": 0.0,
         "system_uptime_exact": 0,
     }
-    redialed = _poll(_connected(), now=20.0)
+    _set_cpe(router, {"dial_status": "connected"})
+    redialed = _poll(router, now=20.0)
     assert redialed["cell_session_uptime_seconds"] == 0.0
     assert redialed["cell_session_uptime_exact"] == 1
-    assert _poll(_connected(), now=35.0)["cell_session_uptime_seconds"] == 15.0
+    assert _poll(router, now=35.0)["cell_session_uptime_seconds"] == 15.0
 
 
 def test_unreachable_deco_restarts_both_timers():
-    _poll(_connected(), now=0.0)
-    assert _poll(_connected(), now=30.0)["system_uptime_seconds"] == 30.0
-    assert not _poll(_unreachable(), now=60.0)
-    recovered = _poll(_connected(), now=90.0)
+    router = _connected()
+    _poll(router, now=0.0)
+    assert _poll(router, now=30.0)["system_uptime_seconds"] == 30.0
+    router.get_internet.side_effect = requests.exceptions.ConnectionError
+    assert not _poll(router, now=60.0)
+    router.get_internet.side_effect = None
+    recovered = _poll(router, now=90.0)
     assert recovered["system_uptime_seconds"] == 0.0
     assert recovered["system_uptime_exact"] == 1
     assert recovered["cell_session_uptime_seconds"] == 0.0
-    assert _poll(_connected(), now=100.0)["system_uptime_seconds"] == 10.0
+    assert _poll(router, now=100.0)["system_uptime_seconds"] == 10.0
 
 
 def test_exports_cpu_and_memory():
@@ -144,3 +160,59 @@ def test_state_is_per_deco():
     _poll(_connected(), now=0.0)
     assert _poll(_connected(), now=50.0, config=other)["system_uptime_seconds"] == 0.0
     assert _poll(_connected(), now=50.0)["system_uptime_seconds"] == 50.0
+
+
+def test_client_is_reused_across_polls():
+    """One login serves every later poll; that is the point of holding it."""
+    router = _connected()
+    _poll(router, now=0.0)
+    for now in (60.0, 120.0, 180.0):
+        _, ctor = _poll_ctor(router, now=now)
+        ctor.assert_not_called()
+    assert router.authorize.call_count == 1
+
+
+def test_session_is_never_logged_out():
+    """Logging out throws away the session the next poll would have reused."""
+    router = _connected()
+    _poll(router, now=0.0)
+    _poll(router, now=60.0)
+    router.logout.assert_not_called()
+
+
+def test_expired_session_logs_in_again_and_recovers():
+    first = _connected(rssi="80")
+    _poll(first, now=0.0)
+    first.get_internet.side_effect = ClientError
+    second = _connected(rssi="90")
+    metrics, ctor = _poll_ctor(second, now=60.0)
+    assert metrics["rssi"] == 90.0
+    ctor.assert_called_once()
+    assert second.authorize.call_count == 1
+
+
+def test_expired_session_that_cannot_log_in_again_gives_up():
+    router = _connected()
+    _poll(router, now=0.0)
+    router.get_internet.side_effect = ClientError
+    assert not _poll(router, now=60.0)
+
+
+def test_connection_error_does_not_log_in_again():
+    """A Deco that is not answering gets no extra login attempt."""
+    router = _connected()
+    _poll(router, now=0.0)
+    router.get_internet.side_effect = requests.exceptions.ConnectionError
+    metrics, ctor = _poll_ctor(router, now=60.0)
+    assert not metrics
+    ctor.assert_not_called()
+
+
+def test_read_timeout_resets_the_timers():
+    """A wedging Deco stops mid-request, which is a timeout, not a refusal."""
+    router = _connected()
+    _poll(router, now=0.0)
+    router.get_internet.side_effect = requests.exceptions.ReadTimeout
+    assert not _poll(router, now=60.0)
+    router.get_internet.side_effect = None
+    assert _poll(router, now=90.0)["system_uptime_seconds"] == 0.0
