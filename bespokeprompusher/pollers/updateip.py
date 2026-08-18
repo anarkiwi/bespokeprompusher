@@ -3,8 +3,8 @@ import socket
 import requests
 
 DIRECTNIC_URL = "https://directnic.com/dns/gateway/{token}/?data={ip}"
-# Client-IP echo on our own numbers VPS, not the Deco's local API.
-WHATISMYIP_URL = "https://www.vandervecken.com/whatismyip"
+# :8443 -- port-share relays :443 to Apache from 127.0.0.1, losing client IP.
+WHATISMYIP_URL = "https://www.vandervecken.com:8443/whatismyip"
 
 
 def _echo_wan_ip(url):
