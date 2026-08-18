@@ -1,3 +1,4 @@
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,15 +15,18 @@ def _creds(token="testtoken"):
     return m
 
 
-def _http_ok(headers=None):
+def _http_ok():
     r = MagicMock()
     r.raise_for_status.return_value = None
-    r.headers = headers or {}
     return r
 
 
+def _ssh_result(returncode=0, out=b"", err=b""):
+    return MagicMock(returncode=returncode, stdout=out, stderr=err)
+
+
 def _wan_ip(ip):
-    return patch("bespokeprompusher.pollers.updateip._echo_wan_ip", return_value=ip)
+    return patch("bespokeprompusher.pollers.updateip._ssh_wan_ip", return_value=ip)
 
 
 def test_returns_synced_when_dns_matches():
@@ -65,47 +69,57 @@ def test_raises_on_dns_failure():
             updateip.poll({"dns_record": "x.example"}, _creds())
 
 
-def test_raises_when_echo_unreachable():
+def test_raises_when_ssh_unreachable():
     with patch(
-        "requests.get", side_effect=requests.exceptions.ConnectTimeout("timeout")
+        "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ssh", timeout=15)
     ):
         with pytest.raises(RuntimeError, match="failed to read WAN IP"):
             updateip.poll({"dns_record": "x.example"}, _creds())
 
 
 # pylint: disable=protected-access
-def test_echo_wan_ip_reads_header():
-    with patch("requests.get", return_value=_http_ok(headers={"X-WAN-IP": "5.6.7.8"})):
-        ip = updateip._echo_wan_ip("https://numbers.example/whatismyip")
+def test_ssh_wan_ip_parses_ssh_client_output():
+    with patch("subprocess.run", return_value=_ssh_result(out=b"5.6.7.8 51413 2222\n")):
+        ip = updateip._ssh_wan_ip("numbers.example", "/key", "/known_hosts")
     assert ip == "5.6.7.8"
 
 
-def test_echo_wan_ip_raises_when_header_missing():
-    with patch("requests.get", return_value=_http_ok(headers={})):
-        with pytest.raises(RuntimeError, match="whatismyip echo failed"):
-            updateip._echo_wan_ip("https://numbers.example/whatismyip")
-
-
-def test_echo_wan_ip_raises_on_bad_ip_in_header():
+def test_ssh_wan_ip_raises_on_nonzero_returncode():
     with patch(
-        "requests.get", return_value=_http_ok(headers={"X-WAN-IP": "not-an-ip"})
+        "subprocess.run", return_value=_ssh_result(returncode=255, err=b"denied")
     ):
-        with pytest.raises(RuntimeError, match="whatismyip echo failed"):
-            updateip._echo_wan_ip("https://numbers.example/whatismyip")
+        with pytest.raises(RuntimeError, match="ssh whatismyip failed"):
+            updateip._ssh_wan_ip("numbers.example", "/key", "/known_hosts")
 
 
-def test_uses_configured_whatismyip_url():
+def test_ssh_wan_ip_raises_on_empty_output():
+    with patch("subprocess.run", return_value=_ssh_result(out=b"")):
+        with pytest.raises(RuntimeError, match="no output"):
+            updateip._ssh_wan_ip("numbers.example", "/key", "/known_hosts")
+
+
+def test_ssh_wan_ip_raises_on_bad_ip():
+    with patch("subprocess.run", return_value=_ssh_result(out=b"not-an-ip 1 2\n")):
+        with pytest.raises(RuntimeError, match="invalid IP"):
+            updateip._ssh_wan_ip("numbers.example", "/key", "/known_hosts")
+
+
+def test_uses_configured_ssh_params():
     with (
         patch(
-            "bespokeprompusher.pollers.updateip._echo_wan_ip", return_value="1.2.3.4"
+            "bespokeprompusher.pollers.updateip._ssh_wan_ip", return_value="1.2.3.4"
         ) as mock_wan,
         patch("socket.gethostbyname", return_value="1.2.3.4"),
     ):
         updateip.poll(
             {
                 "dns_record": "x.example",
-                "whatismyip_url": "https://custom.example/whatismyip",
+                "ssh_host": "custom.example",
+                "ssh_key": "/custom/key",
+                "ssh_known_hosts": "/custom/known_hosts",
             },
             _creds(),
         )
-    mock_wan.assert_called_once_with("https://custom.example/whatismyip")
+    mock_wan.assert_called_once_with(
+        "custom.example", "/custom/key", "/custom/known_hosts"
+    )
