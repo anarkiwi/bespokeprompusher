@@ -1,30 +1,59 @@
 import socket
+import subprocess
 
 import requests
 
 DIRECTNIC_URL = "https://directnic.com/dns/gateway/{token}/?data={ip}"
-# :8443 -- port-share relays :443 to Apache from 127.0.0.1, losing client IP.
-WHATISMYIP_URL = "https://www.vandervecken.com:8443/whatismyip"
+SSH_HOST = "numbers.vandervecken.com"
+SSH_KEY = "/secrets/whatismyip_id_ed25519"
+SSH_KNOWN_HOSTS = "/secrets/whatismyip_known_hosts"
 
 
-def _echo_wan_ip(url):
+def _ssh_wan_ip(host, key_path, known_hosts):
     try:
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        ip = resp.headers["X-WAN-IP"]
+        run = subprocess.run(
+            [
+                "ssh",
+                "-p",
+                "2222",
+                "-i",
+                key_path,
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "StrictHostKeyChecking=yes",
+                "-o",
+                f"UserKnownHostsFile={known_hosts}",
+                f"whatismyip@{host}",
+            ],
+            capture_output=True,
+            check=False,
+            timeout=15,
+        )
+    except (subprocess.SubprocessError, OSError) as e:
+        raise RuntimeError(f"ssh whatismyip failed: {e}") from e
+    if run.returncode != 0:
+        raise RuntimeError(f"ssh whatismyip failed: {run.stderr.decode().strip()}")
+    fields = run.stdout.decode().split()
+    if not fields:
+        raise RuntimeError("ssh whatismyip returned no output")
+    ip = fields[0]
+    try:
         socket.inet_aton(ip)
-        return ip
-    except (requests.exceptions.RequestException, KeyError, OSError) as e:
-        raise RuntimeError(f"whatismyip echo failed: {e}") from e
+    except OSError as e:
+        raise RuntimeError(f"ssh whatismyip returned invalid IP {ip!r}: {e}") from e
+    return ip
 
 
 def poll(config, creds):
     dns_record = config["dns_record"]
     token = creds.get("directnic", "token")
-    url = config.get("whatismyip_url", WHATISMYIP_URL)
+    host = config.get("ssh_host", SSH_HOST)
+    key_path = config.get("ssh_key", SSH_KEY)
+    known_hosts = config.get("ssh_known_hosts", SSH_KNOWN_HOSTS)
 
     try:
-        current_ip = _echo_wan_ip(url)
+        current_ip = _ssh_wan_ip(host, key_path, known_hosts)
     except RuntimeError as e:
         raise RuntimeError(f"updateip: failed to read WAN IP: {e}") from e
 
