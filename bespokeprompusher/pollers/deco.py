@@ -17,6 +17,9 @@ _AUTH_ERRORS = (ClientError, ClientException)
 
 
 class _TPLinkDecoClient2(TPLinkDecoClient):
+    def get_ipv6_status(self):
+        raise NotImplementedError("IPv6 status is not polled for Deco")
+
     def _read(self, form):
         return self.request(
             f"admin/network?form={form}", json.dumps({"operation": "read"})
